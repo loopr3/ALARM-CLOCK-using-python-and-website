@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Alarm Timer with Snooze</title>
+  <style>
+    :root{
+      --bg:#0f172a;/* slate-900 */
+      --card:#112716;/* gray-900 */
+      --muted:#94a3b8;/* slate-400 */
+      --text:#e5e7eb;/* gray-200 */
+      --accent:#22c55e;/* green-500 */
+      --accent2:#3b82f6;/* blue-500 */
+      --danger:#ef4444;/* red-500 */
+      --warn:#f59e0b;/* amber-500 */
+      --shadow: 0 10px 30px rgba(0,0,0,.35);
+      --radius: 1.25rem;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, "Helvetica Neue", Arial, "Apple Color Emoji", "Segoe UI Emoji";
+      background: radial-gradient(1200px 700px at 20% 10%, #1e293b 0%, var(--bg) 55%),
+                  radial-gradient(800px 500px at 80% 80%, #1f2937 0%, var(--bg) 60%);
+      color:var(--text); display:grid; place-items:center; padding:24px;
+    }
+    .app{ width: min(720px, 96vw); background:linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,.015)); border:1px solid rgba(255,255,255,.06); border-radius:var(--radius); box-shadow:var(--shadow); overflow:hidden }
+    header{ padding:20px 24px; display:flex; align-items:center; justify-content:space-between; background:rgba(255,255,255,.02); border-bottom:1px solid rgba(255,255,255,.06)}
+    header h1{ margin:0; font-size:1.25rem; letter-spacing:.3px }
+    .badge{ font-size:.75rem; padding:.25rem .5rem; border-radius:999px; background:rgba(59,130,246,.2); color:#bfdbfe; border:1px solid rgba(59,130,246,.35) }
+    main{ padding:24px }
+    .grid{ display:grid; gap:16px }
+    @media (min-width:640px){ .grid-2{ grid-template-columns: 1fr 1fr } }
+
+    .card{ background:var(--card); border:1px solid rgba(255,255,255,.06); border-radius:var(--radius); padding:16px 16px; }
+    .row{ display:flex; gap:12px; align-items:center; flex-wrap:wrap }
+    label{ font-size:.9rem; color:var(--muted) }
+    input[type="number"], input[type="text"]{
+      background:rgba(255,255,255,.04); color:var(--text); border:1px solid rgba(255,255,255,.08); border-radius:12px; padding:12px 14px; font-size:1rem; width:100%; outline:none;
+    }
+    input[type="number"]::-webkit-outer-spin-button, input[type="number"]::-webkit-inner-spin-button{ -webkit-appearance: none; margin:0 }
+    .controls{ display:flex; gap:10px; flex-wrap:wrap; margin-top:8px }
+    button{ appearance:none; border:none; border-radius:12px; padding:12px 16px; font-weight:600; cursor:pointer; transition:transform .02s ease, opacity .2s ease; }
+    button:active{ transform:translateY(1px) }
+    .btn{ background:#1f2937; color:var(--text); border:1px solid rgba(255,255,255,.08) }
+    .primary{ background:var(--accent2); color:white }
+    .success{ background:var(--accent); color:black }
+    .danger{ background:var(--danger); color:white }
+    .warn{ background:var(--warn); color:black }
+
+    .timer{ display:grid; place-items:center; padding:24px; text-align:center }
+    .time{ font-variant-numeric: tabular-nums; font-size: clamp(2.6rem, 7vw, 5rem); font-weight:800; letter-spacing:1px }
+    .sub{ color:var(--muted); margin-top:6px }
+
+    .snooze-menu{ display:grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap:10px }
+    .snooze-menu button{ padding:14px 10px }
+
+    .footer{ padding:16px 24px; border-top:1px solid rgba(255,255,255,.06); color:var(--muted); font-size:.9rem; display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap }
+
+    .toast{ position:fixed; inset:auto 20px 20px auto; background:#111827; border:1px solid rgba(255,255,255,.1); color:var(--text); padding:12px 14px; border-radius:12px; display:none }
+    .toast.show{ display:block }
+  </style>
+</head>
+<body>
+  <div class="app" role="application" aria-label="Alarm Timer with Snooze">
+    <header>
+      <h1>⏰ Alarm Timer</h1>
+      <span class="badge">Snooze Ready</span>
+    </header>
+
+    <main class="grid grid-2">
+      <section class="card">
+        <div class="row">
+          <div style="flex:1; min-width:130px">
+            <label for="minutes">Minutes</label>
+            <input id="minutes" type="number" min="0" value="0" />
+          </div>
+          <div style="flex:1; min-width:130px">
+            <label for="seconds">Seconds</label>
+            <input id="seconds" type="number" min="0" max="59" value="30" />
+          </div>
+        </div>
+        <div class="row" style="margin-top:10px">
+          <div style="flex:1; min-width:260px">
+            <label for="audioUrl">Alarm Sound URL</label>
+            <input id="audioUrl" type="text" value="https://www.fesliyanstudios.com/play-mp3/4383" />
+          </div>
+          <button id="enableAudio" class="btn success" title="Enable sound (required by browsers)">Enable Sound 🔊</button>
+        </div>
+
+        <div class="controls">
+          <button id="start" class="primary">Start</button>
+          <button id="pause" class="btn" disabled>Pause</button>
+          <button id="reset" class="btn" disabled>Reset</button>
+        </div>
+      </section>
+
+      <section class="card timer" aria-live="polite">
+        <div class="time" id="display">00:30</div>
+        <div class="sub" id="status">Idle</div>
+        <div style="height:8px"></div>
+        <div class="snooze-menu">
+          <button class="btn" data-snooze="300">Snooze 5m</button>
+          <button class="btn" data-snooze="600">Snooze 10m</button>
+          <button class="btn" data-snooze="900">Snooze 15m</button>
+          <button id="customSnooze" class="btn warn">Custom Snooze</button>
+        </div>
+      </section>
+    </main>
+
+    <div class="footer">
+      <div>Tip: Click <b>Enable Sound</b> once so your browser lets the page play audio when the timer ends.</div>
+      <div>Works offline if you download the MP3 and paste a local path.</div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast" role="status" aria-live="assertive"></div>
+
+  <audio id="alarmAudio" preload="auto" crossorigin="anonymous"></audio>
+
+  <script>
+    const $ = (sel) => document.querySelector(sel);
+    const pad = (n) => String(n).padStart(2, '0');
+
+    // Elements
+    const minutesInput = $('#minutes');
+    const secondsInput = $('#seconds');
+    const audioUrlInput = $('#audioUrl');
+    const enableBtn = $('#enableAudio');
+    const startBtn = $('#start');
+    const pauseBtn = $('#pause');
+    const resetBtn = $('#reset');
+    const display = $('#display');
+    const statusEl = $('#status');
+    const audio = $('#alarmAudio');
+    const toast = $('#toast');
+
+    // Timer state
+    let remaining = 30; // seconds
+    let interval = null;
+    let armedForPlayback = false; // has user enabled sound
+
+    function showToast(msg){
+      toast.textContent = msg; toast.classList.add('show');
+      clearTimeout(showToast._t);
+      showToast._t = setTimeout(()=>toast.classList.remove('show'), 2500);
+    }
+
+    function updateDisplay(sec){
+      const m = Math.floor(sec / 60); const s = sec % 60;
+      display.textContent = `${pad(m)}:${pad(s)}`;
+    }
+
+    function computeTotalFromInputs(){
+      const m = Math.max(0, parseInt(minutesInput.value || '0', 10));
+      const s = Math.max(0, Math.min(59, parseInt(secondsInput.value || '0', 10)));
+      return m * 60 + s;
+    }
+
+    function setButtons(running){
+      startBtn.disabled = running;
+      pauseBtn.disabled = !running;
+      resetBtn.disabled = !running && remaining === computeTotalFromInputs();
+    }
+
+    function tick(){
+      if (remaining <= 0){
+        clearInterval(interval); interval = null;
+        statusEl.textContent = 'Time\'s up!';
+        ring();
+        return;
+      }
+      remaining -= 1; updateDisplay(remaining);
+    }
+
+    function startTimer(){
+      remaining = computeTotalFromInputs();
+      if (!remaining) { showToast('Please set a time greater than 0.'); return; }
+      updateDisplay(remaining);
+      statusEl.textContent = 'Counting down…';
+      clearInterval(interval); interval = setInterval(tick, 1000);
+      setButtons(true);
+    }
+
+    function pauseTimer(){
+      if (!interval) return;
+      clearInterval(interval); interval = null; setButtons(false);
+      statusEl.textContent = 'Paused';
+    }
+
+    function resetTimer(){
+      clearInterval(interval); interval = null; setButtons(false);
+      remaining = computeTotalFromInputs(); updateDisplay(remaining);
+      statusEl.textContent = 'Idle';
+    }
+
+    async function enableAudioPlayback(){
+      try{
+        audio.src = audioUrlInput.value.trim();
+        // Prime the audio on a user gesture to satisfy autoplay policies.
+        await audio.play();
+        audio.pause();
+        audio.currentTime = 0;
+        armedForPlayback = true;
+        showToast('Sound enabled successfully.');
+        enableBtn.disabled = true; enableBtn.textContent = 'Sound Enabled ✅';
+      }catch(err){
+        console.warn(err);
+        showToast('Browser blocked autoplay. Try again or check the URL.');
+      }
+    }
+
+    async function ring(){
+      // Try to play. If blocked, ask user to enable.
+      audio.src = audioUrlInput.value.trim();
+      try{
+        if (!armedForPlayback){
+          showToast('Click "Enable Sound" so the alarm can play.');
+        }
+        await audio.play();
+      }catch(err){
+        console.warn('Play blocked:', err);
+        showToast('Alarm sound blocked. Click "Enable Sound" then Start again.');
+      }
+    }
+
+    function scheduleSnooze(seconds){
+      remaining = Math.max(1, seconds|0);
+      updateDisplay(remaining);
+      statusEl.textContent = 'Snoozed';
+      clearInterval(interval); interval = setInterval(tick, 1000);
+      setButtons(true);
+    }
+
+    // Wire up events
+    startBtn.addEventListener('click', startTimer);
+    pauseBtn.addEventListener('click', pauseTimer);
+    resetBtn.addEventListener('click', resetTimer);
+    enableBtn.addEventListener('click', enableAudioPlayback);
+
+    // Live update display when inputs change
+    function inputsChanged(){ updateDisplay(computeTotalFromInputs()); }
+    minutesInput.addEventListener('input', inputsChanged);
+    secondsInput.addEventListener('input', inputsChanged);
+
+    // Snooze buttons
+    document.querySelectorAll('[data-snooze]').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        const s = parseInt(btn.getAttribute('data-snooze'), 10);
+        scheduleSnooze(s);
+      });
+    });
+
+    $('#customSnooze').addEventListener('click', ()=>{
+      const m = prompt('Enter snooze minutes:', '5');
+      if (m === null) return;
+      const mins = Math.max(0, parseInt(m, 10));
+      if (!isFinite(mins) || mins <= 0){ showToast('Please enter a valid number of minutes.'); return; }
+      scheduleSnooze(mins * 60);
+    });
+
+    // Initialize display
+    updateDisplay(remaining);
+  </script>
+</body>
+</html>
